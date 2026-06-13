@@ -112,6 +112,50 @@ window.addEventListener('DOMContentLoaded', () => {
   updateScoreBoard();
 });
 
+// ── Screamer ──
+function triggerScreamer() {
+  const overlay = document.getElementById('screamer');
+  overlay.classList.remove('hidden');
+  overlay.classList.add('flashing');
+
+  // Son strident via Web Audio API
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+
+    const makeScream = (freq, start, duration) => {
+      const osc  = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(freq, ctx.currentTime + start);
+      osc.frequency.exponentialRampToValueAtTime(freq * 2.5, ctx.currentTime + start + duration);
+      gain.gain.setValueAtTime(0.8, ctx.currentTime + start);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + start + duration);
+      osc.start(ctx.currentTime + start);
+      osc.stop(ctx.currentTime + start + duration);
+    };
+
+    makeScream(320, 0,    0.6);
+    makeScream(640, 0.05, 0.6);
+    makeScream(180, 0.1,  0.8);
+    makeScream(900, 0,    0.4);
+  } catch (e) { /* audio non dispo */ }
+
+  // Clic ou touche pour fermer
+  const close = () => {
+    overlay.classList.add('hidden');
+    overlay.classList.remove('flashing');
+    overlay.removeEventListener('click', close);
+    document.removeEventListener('keydown', close);
+  };
+  overlay.addEventListener('click', close);
+  document.addEventListener('keydown', close);
+
+  // Fermeture auto après 4 secondes
+  setTimeout(close, 4000);
+}
+
 // ── Persistance locale ──
 function loadPersisted() {
   state.meilleur  = Number(localStorage.getItem('pendu_best') || 0);
@@ -380,6 +424,7 @@ async function endGame(victoire) {
     BODY_PARTS.forEach(id => document.getElementById(id).classList.remove('hidden'));
     [...state.mot].forEach(l => state.lettresDevinees.add(l));
     renderWord();
+    triggerScreamer();
   }
 
   if (state.score > state.meilleur) state.meilleur = state.score;

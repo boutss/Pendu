@@ -378,6 +378,48 @@ header h1 {
   gap: 10px;
 }
 
+/* ── Screamer ── */
+.screamer {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.screamer.hidden { display: none; }
+
+#screamer-img {
+  width: 100vw;
+  height: 100vh;
+  object-fit: cover;
+  filter: contrast(3) brightness(0.55) saturate(0.15) sepia(1) hue-rotate(300deg);
+  animation: screamer-shake 0.08s infinite;
+}
+
+@keyframes screamer-shake {
+  0%   { transform: translate(0,0)       rotate(0deg);   }
+  15%  { transform: translate(-8px, 6px) rotate(-1deg);  }
+  30%  { transform: translate(8px, -4px) rotate(1.5deg); }
+  45%  { transform: translate(-6px,-8px) rotate(-0.5deg);}
+  60%  { transform: translate(10px, 4px) rotate(2deg);   }
+  75%  { transform: translate(-4px, 8px) rotate(-1.5deg);}
+  90%  { transform: translate(6px, -6px) rotate(0.5deg); }
+  100% { transform: translate(0,0)       rotate(0deg);   }
+}
+
+@keyframes red-flash {
+  0%, 100% { background: #000; }
+  25%       { background: #8b0000; }
+  50%       { background: #000; }
+  75%       { background: #660000; }
+}
+
+.screamer.flashing { animation: red-flash 0.15s 3; }
+
 /* ── Pseudo input ── */
 .pseudo-input {
   width: 100%;
