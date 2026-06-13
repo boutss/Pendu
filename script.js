@@ -109,16 +109,11 @@ window.addEventListener('DOMContentLoaded', () => {
   bindResult();
   bindQuit();
   bindTabs();
-  bindMusicBtn();
   updateScoreBoard();
 });
 
-// ── Contexte audio unique (musique + screamer) ──
-let AC         = null;   // AudioContext partagé
-let musicNodes = [];
-let musicOn    = false;
-let musicMuted = false;
-let masterGain = null;
+// ── Contexte audio ──
+let AC = null;
 
 async function getAC() {
   if (!AC) AC = new (window.AudioContext || window.webkitAudioContext)();
@@ -126,113 +121,67 @@ async function getAC() {
   return AC;
 }
 
-// ── Musique d'ambiance ──
-async function musicPlay() {
-  if (musicMuted || musicOn) return;
-  musicOn = true;
-  try {
-    const ctx = await getAC();
-    const t   = ctx.currentTime;
+function beep(freq, type, vol, dur) {
+  getAC().then(ctx => {
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    const t = ctx.currentTime;
+    o.type = type;
+    o.frequency.value = freq;
+    g.gain.setValueAtTime(vol, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    o.connect(g); g.connect(ctx.destination);
+    o.start(t); o.stop(t + dur);
+  }).catch(() => {});
+}
 
-    masterGain = ctx.createGain();
-    masterGain.gain.setValueAtTime(0, t);
-    masterGain.gain.linearRampToValueAtTime(0.4, t + 3);
-    masterGain.connect(ctx.destination);
+// Son lettre correcte : ding court et clair
+function soundCorrect() { beep(880, 'sine', 0.25, 0.15); }
 
-    const filter = ctx.createBiquadFilter();
-    filter.type = 'lowpass';
-    filter.frequency.value = 600;
-    filter.connect(masterGain);
+// Son lettre fausse : bruit sourd
+function soundWrong() { beep(140, 'sawtooth', 0.2, 0.18); }
 
-    const addDrone = (freq, vol) => {
+// Son victoire : petit arpège joyeux
+function soundWin() {
+  getAC().then(ctx => {
+    const notes = [523, 659, 784, 1047]; // C5 E5 G5 C6
+    notes.forEach((freq, i) => {
       const o = ctx.createOscillator();
       const g = ctx.createGain();
-      o.type = 'sawtooth';
+      const t = ctx.currentTime + i * 0.12;
+      o.type = 'sine';
       o.frequency.value = freq;
-      g.gain.value = vol;
-      o.connect(g); g.connect(filter);
-      o.start(t);
-      musicNodes.push(o, g);
-    };
-    addDrone(80,  1.0);
-    addDrone(82.5, 0.5);
-    addDrone(160,  0.2);
-
-    const lfo = ctx.createOscillator();
-    const lfoG = ctx.createGain();
-    lfo.frequency.value = 0.2;
-    lfoG.gain.value = 80;
-    lfo.connect(lfoG);
-    lfoG.connect(filter.frequency);
-    lfo.start(t);
-    musicNodes.push(lfo, lfoG, filter, masterGain);
-
-    const randomNote = async () => {
-      if (!musicOn) return;
-      const ctx2 = AC;
-      const freqs = [55, 65, 73, 87, 98];
-      const o  = ctx2.createOscillator();
-      const g  = ctx2.createGain();
-      const now = ctx2.currentTime;
-      o.type = 'triangle';
-      o.frequency.value = freqs[Math.floor(Math.random() * freqs.length)];
-      g.gain.setValueAtTime(0, now);
-      g.gain.linearRampToValueAtTime(0.3, now + 0.8);
-      g.gain.linearRampToValueAtTime(0, now + 3);
-      o.connect(g); g.connect(masterGain);
-      o.start(now); o.stop(now + 3.2);
-      setTimeout(randomNote, 3000 + Math.random() * 4000);
-    };
-    setTimeout(randomNote, 2000);
-
-  } catch(e) { console.error('musicPlay error:', e); musicOn = false; }
+      g.gain.setValueAtTime(0.25, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+      o.connect(g); g.connect(ctx.destination);
+      o.start(t); o.stop(t + 0.35);
+    });
+  }).catch(() => {});
 }
 
-function musicStop() {
-  musicOn = false;
-  if (!AC) return;
-  const t = AC.currentTime;
-  if (masterGain) {
-    try { masterGain.gain.linearRampToValueAtTime(0, t + 1); } catch(e) {}
-  }
-  setTimeout(() => {
-    musicNodes.forEach(n => { try { if (n.stop) n.stop(); } catch(e) {} });
-    musicNodes = [];
-    masterGain = null;
-  }, 1100);
-}
-
-function bindMusicBtn() {
-  document.getElementById('music-btn').addEventListener('click', () => {
-    musicMuted = !musicMuted;
-    document.getElementById('music-btn').textContent = musicMuted ? '🔇' : '🔊';
-    if (musicMuted) musicStop(); else musicPlay();
-  });
-}
-
-// ── Screamer ──
+// ── Screamer (son à la défaite) ──
 function triggerScreamer() {
   const overlay = document.getElementById('screamer');
   overlay.classList.remove('hidden');
   overlay.classList.add('flashing');
 
   getAC().then(ctx => {
-    const makeScream = (freq, delay, dur) => {
+    const scream = (freq, delay, dur) => {
       const o = ctx.createOscillator();
       const g = ctx.createGain();
-      const now = ctx.currentTime;
+      const t = ctx.currentTime;
       o.type = 'sawtooth';
-      o.frequency.setValueAtTime(freq, now + delay);
-      o.frequency.exponentialRampToValueAtTime(freq * 2.5, now + delay + dur);
-      g.gain.setValueAtTime(0.8, now + delay);
-      g.gain.exponentialRampToValueAtTime(0.001, now + delay + dur);
+      o.frequency.setValueAtTime(freq, t + delay);
+      o.frequency.exponentialRampToValueAtTime(freq * 2.5, t + delay + dur);
+      g.gain.setValueAtTime(0.3, t + delay);
+      g.gain.exponentialRampToValueAtTime(0.001, t + delay + dur);
       o.connect(g); g.connect(ctx.destination);
-      o.start(now + delay); o.stop(now + delay + dur);
+      o.start(t + delay); o.stop(t + delay + dur);
     };
-    makeScream(320, 0,    0.6);
-    makeScream(640, 0.05, 0.6);
-    makeScream(180, 0.1,  0.8);
-    makeScream(900, 0,    0.4);
+    scream(320, 0,    0.6);
+    scream(640, 0.05, 0.6);
+    scream(180, 0.1,  0.8);
+    scream(900, 0,    0.4);
   }).catch(() => {});
 
   const close = () => {
@@ -264,7 +213,7 @@ function savePersisted() {
 function bindSetup() {
   bindChoiceGroup('category-group',   v => { state.categorie  = v; });
   bindChoiceGroup('difficulty-group', v => { state.difficulte = v; });
-  document.getElementById('start-btn').addEventListener('click', () => { musicPlay(); startGame(); });
+  document.getElementById('start-btn').addEventListener('click', () => { getAC(); startGame(); });
 }
 
 function bindChoiceGroup(id, cb) {
@@ -427,10 +376,12 @@ function handleGuess(letter) {
   if (state.mot.includes(letter)) {
     state.lettresDevinees.add(letter);
     if (btn) btn.classList.add('correct');
+    soundCorrect();
   } else {
     state.viesRestantes--;
     if (btn) btn.classList.add('wrong');
     revealBodyPart();
+    soundWrong();
   }
 
   if (btn) btn.disabled = true;
@@ -509,6 +460,7 @@ async function endGame(victoire) {
     if (state.serie > 1) points += state.serie * 5;
     state.score += points;
 
+    soundWin();
     await submitGlobalScore(points);
   } else {
     state.serie = 0;
