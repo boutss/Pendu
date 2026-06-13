@@ -109,26 +109,49 @@ window.addEventListener('DOMContentLoaded', () => {
   bindResult();
   bindQuit();
   bindTabs();
+  bindMusicBtn();
   updateScoreBoard();
 });
 
 // ── Musique YouTube ──
-let ytPlayer = null;
-let ytReady  = false;
+let ytPlayer    = null;
+let ytReady     = false;
+let ytPending   = false;  // jouer dès que le player est prêt
+let ytMuted     = false;
 
 window.onYouTubeIframeAPIReady = () => {
   ytPlayer = new YT.Player('yt-player', {
     videoId: 'w0vcS3-TRFg',
     playerVars: { autoplay: 0, loop: 1, playlist: 'w0vcS3-TRFg' },
     events: {
-      onReady: () => { ytReady = true; },
+      onReady: () => {
+        ytReady = true;
+        ytPlayer.setVolume(50);
+        if (ytPending) { ytPlayer.playVideo(); ytPending = false; }
+      },
     },
   });
 };
 
-function musicPlay()  { if (ytReady) { ytPlayer.setVolume(50); ytPlayer.playVideo(); } }
-function musicStop()  { if (ytReady) ytPlayer.stopVideo(); }
-function musicPause() { if (ytReady) ytPlayer.pauseVideo(); }
+function musicPlay() {
+  if (ytMuted) return;
+  if (ytReady) { ytPlayer.setVolume(50); ytPlayer.playVideo(); }
+  else ytPending = true;
+}
+
+function musicStop() {
+  ytPending = false;
+  if (ytReady) ytPlayer.stopVideo();
+}
+
+function bindMusicBtn() {
+  document.getElementById('music-btn').addEventListener('click', () => {
+    ytMuted = !ytMuted;
+    document.getElementById('music-btn').textContent = ytMuted ? '🔇' : '🔊';
+    if (ytMuted) musicStop();
+    else musicPlay();
+  });
+}
 
 // ── Audio (initialisé sur geste utilisateur pour mobile) ──
 let audioCtx = null;
