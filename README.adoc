@@ -1,0 +1,87 @@
+= 🪢 Le Pendu
+:toc: left
+:toc-title: Sommaire
+:icons: font
+:source-highlighter: highlight.js
+
+image:https://img.shields.io/badge/HTML5-E34F26?style=flat&logo=html5&logoColor=white[]
+image:https://img.shields.io/badge/CSS3-1572B6?style=flat&logo=css3&logoColor=white[]
+image:https://img.shields.io/badge/JavaScript-F7DF1E?style=flat&logo=javascript&logoColor=black[]
+image:https://img.shields.io/badge/GitHub%20Pages-222222?style=flat&logo=github&logoColor=white[]
+
+== Jouer en ligne
+
+👉 https://boutss.github.io/Pendu/[*Lancer le jeu*]
+
+_Aucune installation requise — fonctionne directement dans le navigateur._
+
+== Présentation
+
+*Le Pendu* est une application web de jeu du pendu complète, jouable depuis n'importe quel navigateur moderne.
+Le joueur doit deviner un mot lettre par lettre avant d'épuiser ses tentatives, sous peine de voir le pendu se dessiner progressivement.
+
+== Fonctionnalités
+
+* 🎨 *Dessin SVG progressif* du pendu en 6 étapes
+* 🗂️ *5 catégories* de mots : Animaux, Pays, Sports, Films, Aliments
+* ⚡ *3 niveaux de difficulté* — Facile, Moyen, Difficile
+* 💡 *Indices* disponibles en mode Facile et Moyen
+* ⌨️ *Clavier virtuel* cliquable + saisie au clavier physique
+* 🏆 *Système de score* avec bonus de série et de difficulté
+* 💾 *Sauvegarde locale* du top 5 des meilleurs scores (localStorage)
+* 📱 *Responsive* — fonctionne sur mobile et desktop
+
+== Niveaux de difficulté
+
+[cols="1,1,1", options="header"]
+|===
+| Niveau | Vies | Indice affiché
+| Facile | 8 | ✅ Oui
+| Moyen | 6 | ✅ Oui
+| Difficile | 5 | ❌ Non
+|===
+
+== Calcul des points
+
+[source]
+----
+Points de base  = vies restantes × 10
+Multiplicateur  = ×1.5 (Moyen) ou ×2.5 (Difficile)
+Bonus de série  = série × 5 points (à partir du 2e mot consécutif)
+----
+
+== Structure du projet
+
+[source]
+----
+Pendu/
+├── index.html   ← Structure des 3 écrans (accueil, jeu, résultat)
+├── style.css    ← Thème sombre, animations, responsive
+└── script.js    ← Logique du jeu, gestion des scores
+----
+
+== Lancer le projet en local
+
+Cloner le dépôt :
+
+[source,bash]
+----
+git clone https://github.com/boutss/Pendu.git
+cd Pendu
+----
+
+Ouvrir `index.html` dans un navigateur — aucune dépendance, aucun serveur requis.
+
+== Captures d'écran
+
+[cols="a,a", frame=none, grid=none]
+|===
+| *Écran d'accueil*
+image::https://via.placeholder.com/300x180/1a1a2e/7c6af7?text=Accueil[]
+| *Jeu en cours*
+image::https://via.placeholder.com/300x180/1a1a2e/f76ac8?text=En+jeu[]
+|===
+
+== Auteur
+
+Développé par https://github.com/boutss[*boutss*].
