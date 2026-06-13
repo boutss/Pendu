@@ -171,11 +171,12 @@ async function loadGlobalScores() {
     .limit(10);
 
   if (error) {
+    console.error('Supabase SELECT error:', error);
     container.innerHTML = '<span class="loading">Erreur de chargement.</span>';
     return;
   }
 
-  if (!data.length) {
+  if (!data || !data.length) {
     container.innerHTML = '<span class="loading">Aucun score encore — sois le premier !</span>';
     return;
   }
@@ -185,9 +186,10 @@ async function loadGlobalScores() {
     const div = document.createElement('div');
     div.className = 'global-score-item';
     const date = new Date(s.created_at).toLocaleDateString('fr-FR');
+    const pseudo = escapeHtml(s.pseudo || 'Anonyme');
     div.innerHTML = `
       <span class="score-rank">${i + 1}.</span>
-      <span class="score-pseudo">${escapeHtml(s.pseudo)}</span>
+      <span class="score-pseudo">${pseudo}</span>
       <span class="score-meta">${capFirst(s.difficulte)} · ${date}</span>
       <span class="score-val">${s.points} pts</span>`;
     container.appendChild(div);
@@ -195,13 +197,14 @@ async function loadGlobalScores() {
 }
 
 async function submitGlobalScore(points) {
-  if (!state.pseudo || points <= 0) return;
-  await db.from('scores').insert({
-    pseudo:     state.pseudo,
+  if (points <= 0) return;
+  const { error } = await db.from('scores').insert({
+    pseudo:     state.pseudo || 'Anonyme',
     points:     points,
     categorie:  state.categorie,
     difficulte: state.difficulte,
   });
+  if (error) console.error('Supabase INSERT error:', error);
 }
 
 // ── Démarrage ──

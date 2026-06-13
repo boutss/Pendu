@@ -439,7 +439,7 @@ header h1 {
 
 .global-score-item:first-child { border: 1px solid var(--accent); }
 
-.score-pseudo { flex: 1; padding: 0 8px; font-weight: 600; }
+.score-pseudo { flex: 1; padding: 0 8px; font-weight: 600; color: var(--text); }
 .score-meta   { font-size: 0.75rem; color: var(--muted); }
 
 .loading { color: var(--muted); font-size: 0.9rem; text-align: center; display: block; padding: 12px; }
