@@ -449,7 +449,6 @@ function renderLives() {
 // ── Fin de partie ──
 async function endGame(victoire) {
   disableKeyboard();
-  musicStop();
 
   let points = 0;
   if (victoire) {
@@ -540,7 +539,6 @@ function updateScoreBoard() {
 // ── Quitter ──
 function bindQuit() {
   document.getElementById('quit-btn').addEventListener('click', () => {
-    musicStop();
     state.serie = 0;
     renderHighScores();
     showScreen('setup-screen');
