@@ -281,13 +281,15 @@ async function loadGlobalScores() {
 
 async function submitGlobalScore(points) {
   if (points <= 0) return;
-  const { error } = await db.from('scores').insert({
-    pseudo:     state.pseudo || 'Anonyme',
-    points:     points,
-    categorie:  state.categorie,
-    difficulte: state.difficulte,
-  });
-  if (error) console.error('Supabase INSERT error:', error);
+  try {
+    const { error } = await db.from('scores').insert({
+      pseudo:     state.pseudo || 'Anonyme',
+      points:     points,
+      categorie:  state.categorie,
+      difficulte: state.difficulte,
+    });
+    if (error) console.error('Supabase INSERT error:', error);
+  } catch(e) { console.error('submitGlobalScore threw:', e); }
 }
 
 // ── Démarrage ──
@@ -460,7 +462,7 @@ async function endGame(victoire) {
     state.score += points;
 
     soundWin();
-    await submitGlobalScore(points);
+    try { await Promise.race([submitGlobalScore(points), new Promise(r => setTimeout(r, 3000))]); } catch(e) {}
   } else {
     state.serie = 0;
     BODY_PARTS.forEach(id => document.getElementById(id).classList.remove('hidden'));
