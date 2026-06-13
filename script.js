@@ -1,0 +1,383 @@
+'use strict';
+
+// ── Banque de mots ──
+const WORDS = {
+  animaux: [
+    { mot: 'ELEPHANT', indice: 'Grand mammifère à trompe' },
+    { mot: 'GIRAFE', indice: 'Long cou, taches brunes' },
+    { mot: 'CROCODILE', indice: 'Reptile des marécages' },
+    { mot: 'PAPILLON', indice: 'Insecte aux ailes colorées' },
+    { mot: 'RHINOCEROS', indice: 'Mammifère à corne' },
+    { mot: 'DAUPHIN', indice: 'Mammifère marin intelligent' },
+    { mot: 'CHAUVESOURIS', indice: 'Mammifère volant nocturne' },
+    { mot: 'FLAMANT', indice: 'Oiseau rose sur une patte' },
+    { mot: 'CASTOR', indice: 'Bâtit des barrages' },
+    { mot: 'LYNX', indice: 'Félin sauvage européen' },
+  ],
+  pays: [
+    { mot: 'FRANCE', indice: 'Pays de la baguette et du vin' },
+    { mot: 'ALLEMAGNE', indice: 'Pays de la bière et de BMW' },
+    { mot: 'JAPON', indice: 'Pays du soleil levant' },
+    { mot: 'BRESIL', indice: 'Plus grand pays d\'Amérique du Sud' },
+    { mot: 'AUSTRALIE', indice: 'Continent et pays du Pacifique' },
+    { mot: 'MAROC', indice: 'Pays du Maghreb, Marrakech' },
+    { mot: 'PORTUGAL', indice: 'Pays d\'Europe, Lisbonne' },
+    { mot: 'NIGERIA', indice: 'Pays le plus peuplé d\'Afrique' },
+    { mot: 'ARGENTINE', indice: 'Terre du tango et du maté' },
+    { mot: 'SUEDE', indice: 'Pays scandinave, IKEA' },
+  ],
+  sports: [
+    { mot: 'FOOTBALL', indice: 'Sport le plus populaire au monde' },
+    { mot: 'BASKETBALL', indice: 'Panier à 3,05 mètres de hauteur' },
+    { mot: 'NATATION', indice: 'On nage en piscine ou en mer' },
+    { mot: 'CYCLISME', indice: 'Tour de France' },
+    { mot: 'ESCRIME', indice: 'Combat avec des lames' },
+    { mot: 'JUDO', indice: 'Art martial japonais' },
+    { mot: 'VOLLEYBALL', indice: 'Filet, 6 joueurs par équipe' },
+    { mot: 'TENNIS', indice: 'Raquette et balles jaunes' },
+    { mot: 'BOXE', indice: 'Gants et ring' },
+    { mot: 'HANDBALL', indice: 'Sport collectif en salle' },
+  ],
+  films: [
+    { mot: 'TITANIC', indice: 'Naufrage et histoire d\'amour' },
+    { mot: 'AVATAR', indice: 'Planète Pandora, Na\'vi bleus' },
+    { mot: 'INCEPTION', indice: 'Rêves dans les rêves' },
+    { mot: 'GLADIATEUR', indice: 'Maximus dans les arènes de Rome' },
+    { mot: 'INTERSTELLAR', indice: 'Voyage à travers les trous noirs' },
+    { mot: 'PARASITE', indice: 'Film coréen, Palme d\'Or 2019' },
+    { mot: 'CASABLANCA', indice: 'Classique du cinéma noir et blanc' },
+    { mot: 'MATRIX', indice: 'Pilule rouge ou pilule bleue' },
+    { mot: 'PSYCHOSE', indice: 'Hitchcock, la douche' },
+    { mot: 'SHINING', indice: 'Kubrick, hôtel hanté' },
+  ],
+  aliments: [
+    { mot: 'CROISSANT', indice: 'Viennoiserie en forme de lune' },
+    { mot: 'CAMEMBERT', indice: 'Fromage normand' },
+    { mot: 'COURGETTE', indice: 'Légume vert d\'été' },
+    { mot: 'FRAMBOISE', indice: 'Petit fruit rouge des bois' },
+    { mot: 'ARTICHAUT', indice: 'Légume aux feuilles à manger' },
+    { mot: 'MERINGUE', indice: 'Dessert à base de blanc d\'œuf' },
+    { mot: 'POIREAU', indice: 'Légume allongé blanc et vert' },
+    { mot: 'ANANAS', indice: 'Fruit tropical épineux' },
+    { mot: 'ENDIVE', indice: 'Légume pâle et amer' },
+    { mot: 'MACARON', indice: 'Petit gâteau coloré de Paris' },
+  ],
+};
+
+const DIFFICULTY = {
+  facile:    { vies: 8,  indice: true  },
+  moyen:     { vies: 6,  indice: true  },
+  difficile: { vies: 5,  indice: false },
+};
+
+const BODY_PARTS = ['head', 'body', 'arm-l', 'arm-r', 'leg-l', 'leg-r'];
+
+const KEYBOARD_ROWS = [
+  ['A','Z','E','R','T','Y','U','I','O','P'],
+  ['Q','S','D','F','G','H','J','K','L','M'],
+  ['W','X','C','V','B','N'],
+];
+
+// ── État du jeu ──
+let state = {
+  categorie: 'all',
+  difficulte: 'facile',
+  mot: '',
+  indice: '',
+  lettresDevinees: new Set(),
+  lettresEssayees: new Set(),
+  viesRestantes: 6,
+  viesMax: 6,
+  score: 0,
+  serie: 0,
+  meilleur: 0,
+  historique: [],
+};
+
+// ── Init ──
+window.addEventListener('DOMContentLoaded', () => {
+  loadPersisted();
+  renderHighScores();
+  buildKeyboard();
+  bindSetup();
+  bindResult();
+  bindQuit();
+  updateScoreBoard();
+});
+
+// ── Persistance ──
+function loadPersisted() {
+  state.meilleur = Number(localStorage.getItem('pendu_best') || 0);
+  state.historique = JSON.parse(localStorage.getItem('pendu_scores') || '[]');
+}
+
+function savePersisted() {
+  localStorage.setItem('pendu_best', state.meilleur);
+  localStorage.setItem('pendu_scores', JSON.stringify(state.historique));
+}
+
+// ── Setup ──
+function bindSetup() {
+  bindChoiceGroup('category-group', v => { state.categorie = v; });
+  bindChoiceGroup('difficulty-group', v => { state.difficulte = v; });
+  document.getElementById('start-btn').addEventListener('click', startGame);
+}
+
+function bindChoiceGroup(id, cb) {
+  document.getElementById(id).querySelectorAll('.choice-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.getElementById(id).querySelectorAll('.choice-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      cb(btn.dataset.value);
+    });
+  });
+}
+
+// ── Démarrage ──
+function startGame() {
+  const pool = state.categorie === 'all'
+    ? Object.values(WORDS).flat()
+    : WORDS[state.categorie] || [];
+
+  const item = pool[Math.floor(Math.random() * pool.length)];
+  const diff = DIFFICULTY[state.difficulte];
+
+  state.mot            = item.mot.toUpperCase();
+  state.indice         = diff.indice ? item.indice : '';
+  state.lettresDevinees = new Set();
+  state.lettresEssayees = new Set();
+  state.viesMax         = diff.vies;
+  state.viesRestantes   = diff.vies;
+
+  showScreen('game-screen');
+  document.getElementById('category-badge').textContent  = formatCategorie(state.categorie);
+  document.getElementById('difficulty-badge').textContent = capFirst(state.difficulte);
+  document.getElementById('hint-text').textContent        = state.indice ? `Indice : ${state.indice}` : '';
+  document.getElementById('tried-letters').textContent    = '';
+
+  resetGallows();
+  renderWord();
+  renderLives();
+  resetKeyboard();
+}
+
+function formatCategorie(c) {
+  return c === 'all' ? 'Toutes catégories' : capFirst(c);
+}
+
+function capFirst(s) {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+// ── Saisie clavier physique ──
+document.addEventListener('keydown', e => {
+  if (!document.getElementById('game-screen').classList.contains('active')) return;
+  const letter = e.key.toUpperCase();
+  if (/^[A-Z]$/.test(letter)) handleGuess(letter);
+});
+
+// ── Clavier visuel ──
+function buildKeyboard() {
+  const kb = document.getElementById('keyboard');
+  KEYBOARD_ROWS.forEach(row => {
+    const rowEl = document.createElement('div');
+    rowEl.className = 'kb-row';
+    row.forEach(letter => {
+      const btn = document.createElement('button');
+      btn.className   = 'kb-key';
+      btn.textContent = letter;
+      btn.dataset.letter = letter;
+      btn.addEventListener('click', () => handleGuess(letter));
+      rowEl.appendChild(btn);
+    });
+    kb.appendChild(rowEl);
+  });
+}
+
+function resetKeyboard() {
+  document.querySelectorAll('.kb-key').forEach(btn => {
+    btn.disabled = false;
+    btn.className = 'kb-key';
+  });
+}
+
+// ── Logique principale ──
+function handleGuess(letter) {
+  if (state.lettresEssayees.has(letter)) return;
+  state.lettresEssayees.add(letter);
+
+  const btn = document.querySelector(`.kb-key[data-letter="${letter}"]`);
+
+  if (state.mot.includes(letter)) {
+    state.lettresDevinees.add(letter);
+    if (btn) btn.classList.add('correct');
+  } else {
+    state.viesRestantes--;
+    if (btn) btn.classList.add('wrong');
+    revealBodyPart();
+  }
+
+  if (btn) btn.disabled = true;
+
+  updateTriedLetters();
+  renderWord();
+  renderLives();
+  checkEndGame();
+}
+
+function updateTriedLetters() {
+  const wrong = [...state.lettresEssayees].filter(l => !state.mot.includes(l));
+  document.getElementById('tried-letters').textContent = wrong.join(' ');
+}
+
+function checkEndGame() {
+  const motSansEspaces = state.mot.replace(/\s/g, '');
+  const toutDeviné = [...motSansEspaces].every(l => state.lettresDevinees.has(l));
+
+  if (toutDeviné) {
+    endGame(true);
+  } else if (state.viesRestantes <= 0) {
+    endGame(false);
+  }
+}
+
+// ── Gallows ──
+function resetGallows() {
+  BODY_PARTS.forEach(id => {
+    document.getElementById(id).classList.add('hidden');
+  });
+}
+
+function revealBodyPart() {
+  const erreurs = state.viesMax - state.viesRestantes;
+  const partsToShow = Math.ceil(erreurs * BODY_PARTS.length / state.viesMax);
+  BODY_PARTS.slice(0, partsToShow).forEach(id => {
+    document.getElementById(id).classList.remove('hidden');
+  });
+}
+
+// ── Rendu mot ──
+function renderWord() {
+  const display = document.getElementById('word-display');
+  display.innerHTML = '';
+
+  [...state.mot].forEach(letter => {
+    const slot = document.createElement('div');
+    if (letter === ' ') {
+      slot.className = 'letter-slot separator';
+    } else {
+      slot.className = 'letter-slot' + (state.lettresDevinees.has(letter) ? ' revealed' : '');
+      slot.textContent = state.lettresDevinees.has(letter) ? letter : '';
+    }
+    display.appendChild(slot);
+  });
+}
+
+// ── Vies ──
+function renderLives() {
+  const hearts = '❤️'.repeat(state.viesRestantes) + '🖤'.repeat(state.viesMax - state.viesRestantes);
+  document.getElementById('lives-count').textContent = `${hearts} (${state.viesRestantes}/${state.viesMax})`;
+}
+
+// ── Fin de partie ──
+function endGame(victoire) {
+  disableKeyboard();
+
+  let points = 0;
+  if (victoire) {
+    points = state.viesRestantes * 10;
+    if (state.difficulte === 'moyen')    points = Math.round(points * 1.5);
+    if (state.difficulte === 'difficile') points = Math.round(points * 2.5);
+    state.serie++;
+    if (state.serie > 1) points += state.serie * 5;
+    state.score += points;
+  } else {
+    state.serie = 0;
+    // révéler toutes les parties du pendu
+    BODY_PARTS.forEach(id => document.getElementById(id).classList.remove('hidden'));
+    // révéler le mot
+    [...state.mot].forEach(l => state.lettresDevinees.add(l));
+    renderWord();
+  }
+
+  if (state.score > state.meilleur) state.meilleur = state.score;
+  updateScoreBoard();
+  recordScore(points);
+  savePersisted();
+
+  setTimeout(() => showResult(victoire, points), victoire ? 600 : 1200);
+}
+
+function disableKeyboard() {
+  document.querySelectorAll('.kb-key').forEach(btn => { btn.disabled = true; });
+}
+
+// ── Écran résultat ──
+function showResult(victoire, points) {
+  const card   = document.getElementById('result-card');
+  card.className = 'result-card ' + (victoire ? 'win' : 'lose');
+
+  document.getElementById('result-icon').textContent    = victoire ? '🎉' : '💀';
+  document.getElementById('result-title').textContent   = victoire ? 'Bravo !' : 'Perdu !';
+  document.getElementById('result-message').textContent = victoire
+    ? `Tu as trouvé le mot en ${state.viesMax - state.viesRestantes} erreur(s).`
+    : `Le mot était : ${state.mot}`;
+
+  document.getElementById('stat-word').textContent      = state.mot;
+  document.getElementById('stat-points').textContent    = `+${points}`;
+  document.getElementById('stat-streak').textContent    = `×${state.serie}`;
+
+  showScreen('result-screen');
+}
+
+function bindResult() {
+  document.getElementById('next-btn').addEventListener('click', () => startGame());
+  document.getElementById('menu-btn').addEventListener('click', () => {
+    renderHighScores();
+    showScreen('setup-screen');
+  });
+}
+
+// ── Scores ──
+function recordScore(points) {
+  if (points <= 0) return;
+  state.historique.push({ pts: points, date: new Date().toLocaleDateString('fr-FR') });
+  state.historique.sort((a, b) => b.pts - a.pts);
+  state.historique = state.historique.slice(0, 5);
+}
+
+function renderHighScores() {
+  const list = document.getElementById('high-scores-list');
+  list.innerHTML = '';
+  if (state.historique.length === 0) {
+    list.innerHTML = '<li style="color:var(--muted);justify-content:center">Aucun score enregistré</li>';
+    return;
+  }
+  state.historique.forEach((s, i) => {
+    const li = document.createElement('li');
+    li.innerHTML = `<span class="score-rank">${i + 1}.</span><span class="score-name">${s.date}</span><span class="score-val">${s.pts} pts</span>`;
+    list.appendChild(li);
+  });
+}
+
+function updateScoreBoard() {
+  document.getElementById('score').textContent  = state.score;
+  document.getElementById('streak').textContent = state.serie;
+  document.getElementById('best').textContent   = state.meilleur;
+}
+
+// ── Quitter ──
+function bindQuit() {
+  document.getElementById('quit-btn').addEventListener('click', () => {
+    state.serie = 0;
+    renderHighScores();
+    showScreen('setup-screen');
+    updateScoreBoard();
+  });
+}
+
+// ── Navigation ──
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
