@@ -393,9 +393,11 @@ header h1 {
 .screamer.hidden { display: none; }
 
 #screamer-img {
-  width: 100vw;
-  height: 100vh;
-  object-fit: cover;
+  max-width: 100vw;
+  max-height: 100vh;
+  width: auto;
+  height: auto;
+  object-fit: contain;
   filter: contrast(3) brightness(0.55) saturate(0.15) sepia(1) hue-rotate(300deg);
   animation: screamer-shake 0.08s infinite;
 }
