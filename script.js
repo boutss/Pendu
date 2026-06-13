@@ -113,127 +113,101 @@ window.addEventListener('DOMContentLoaded', () => {
   updateScoreBoard();
 });
 
-// ── Musique d'ambiance (Web Audio) ──
-let musicCtx   = null;
+// ── Contexte audio unique (musique + screamer) ──
+let AC         = null;   // AudioContext partagé
 let musicNodes = [];
 let musicOn    = false;
 let musicMuted = false;
+let masterGain = null;
 
-function musicPlay() {
+async function getAC() {
+  if (!AC) AC = new (window.AudioContext || window.webkitAudioContext)();
+  if (AC.state === 'suspended') await AC.resume();
+  return AC;
+}
+
+// ── Musique d'ambiance ──
+async function musicPlay() {
   if (musicMuted || musicOn) return;
-  if (!musicCtx) musicCtx = new (window.AudioContext || window.webkitAudioContext)();
-  if (musicCtx.state === 'suspended') musicCtx.resume();
   musicOn = true;
+  try {
+    const ctx = await getAC();
+    const t   = ctx.currentTime;
 
-  const t = musicCtx.currentTime;
+    masterGain = ctx.createGain();
+    masterGain.gain.setValueAtTime(0, t);
+    masterGain.gain.linearRampToValueAtTime(0.4, t + 3);
+    masterGain.connect(ctx.destination);
 
-  // Mastervolume
-  const master = musicCtx.createGain();
-  master.gain.setValueAtTime(0, t);
-  master.gain.linearRampToValueAtTime(0.35, t + 3);
-  master.connect(musicCtx.destination);
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.value = 600;
+    filter.connect(masterGain);
 
-  // Filtre passe-bas qui évolue lentement
-  const filter = musicCtx.createBiquadFilter();
-  filter.type = 'lowpass';
-  filter.frequency.setValueAtTime(300, t);
-  filter.frequency.linearRampToValueAtTime(900, t + 20);
-  filter.connect(master);
+    const addDrone = (freq, vol) => {
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.type = 'sawtooth';
+      o.frequency.value = freq;
+      g.gain.value = vol;
+      o.connect(g); g.connect(filter);
+      o.start(t);
+      musicNodes.push(o, g);
+    };
+    addDrone(80,  1.0);
+    addDrone(82.5, 0.5);
+    addDrone(160,  0.2);
 
-  // Drone grave (80 Hz)
-  const drone1 = musicCtx.createOscillator();
-  drone1.type = 'sawtooth';
-  drone1.frequency.value = 80;
-  drone1.connect(filter);
-  drone1.start(t);
-  musicNodes.push(drone1);
+    const lfo = ctx.createOscillator();
+    const lfoG = ctx.createGain();
+    lfo.frequency.value = 0.2;
+    lfoG.gain.value = 80;
+    lfo.connect(lfoG);
+    lfoG.connect(filter.frequency);
+    lfo.start(t);
+    musicNodes.push(lfo, lfoG, filter, masterGain);
 
-  // Drone légèrement désaccordé → battement inquiétant
-  const drone2 = musicCtx.createOscillator();
-  drone2.type = 'sawtooth';
-  drone2.frequency.value = 82.5;
-  const g2 = musicCtx.createGain();
-  g2.gain.value = 0.5;
-  drone2.connect(g2);
-  g2.connect(filter);
-  drone2.start(t);
-  musicNodes.push(drone2);
+    const randomNote = async () => {
+      if (!musicOn) return;
+      const ctx2 = AC;
+      const freqs = [55, 65, 73, 87, 98];
+      const o  = ctx2.createOscillator();
+      const g  = ctx2.createGain();
+      const now = ctx2.currentTime;
+      o.type = 'triangle';
+      o.frequency.value = freqs[Math.floor(Math.random() * freqs.length)];
+      g.gain.setValueAtTime(0, now);
+      g.gain.linearRampToValueAtTime(0.3, now + 0.8);
+      g.gain.linearRampToValueAtTime(0, now + 3);
+      o.connect(g); g.connect(masterGain);
+      o.start(now); o.stop(now + 3.2);
+      setTimeout(randomNote, 3000 + Math.random() * 4000);
+    };
+    setTimeout(randomNote, 2000);
 
-  // Harmonique aiguë pulsante (160 Hz)
-  const harm = musicCtx.createOscillator();
-  harm.type = 'sine';
-  harm.frequency.value = 160;
-  const lfo = musicCtx.createOscillator();
-  lfo.frequency.value = 0.18;
-  const lfoGain = musicCtx.createGain();
-  lfoGain.gain.value = 0.12;
-  lfo.connect(lfoGain);
-  const harmGain = musicCtx.createGain();
-  harmGain.gain.value = 0.18;
-  lfoGain.connect(harmGain.gain);
-  harm.connect(harmGain);
-  harmGain.connect(master);
-  harm.start(t);
-  lfo.start(t);
-  musicNodes.push(harm, lfo);
-
-  // Notes aléatoires graves toutes les ~4s
-  const randomNote = () => {
-    if (!musicOn) return;
-    const freqs = [55, 65, 73, 87, 98, 110];
-    const freq  = freqs[Math.floor(Math.random() * freqs.length)];
-    const osc   = musicCtx.createOscillator();
-    const gn    = musicCtx.createGain();
-    osc.type = 'triangle';
-    osc.frequency.value = freq;
-    const now = musicCtx.currentTime;
-    gn.gain.setValueAtTime(0, now);
-    gn.gain.linearRampToValueAtTime(0.25, now + 0.8);
-    gn.gain.linearRampToValueAtTime(0, now + 3);
-    osc.connect(gn);
-    gn.connect(master);
-    osc.start(now);
-    osc.stop(now + 3.2);
-    musicNodes.push(osc);
-    const delay = 3000 + Math.random() * 4000;
-    setTimeout(randomNote, delay);
-  };
-  setTimeout(randomNote, 2000);
-
-  musicNodes.push(master, filter, g2, lfoGain, harmGain);
+  } catch(e) { console.error('musicPlay error:', e); musicOn = false; }
 }
 
 function musicStop() {
-  if (!musicOn) return;
   musicOn = false;
-  if (!musicCtx) return;
-  const t = musicCtx.currentTime;
-  musicNodes.forEach(n => {
-    try {
-      if (n instanceof OscillatorNode) n.stop(t + 1.5);
-      else if (n instanceof GainNode) n.gain.linearRampToValueAtTime(0, t + 1.5);
-    } catch(e) {}
-  });
-  musicNodes = [];
+  if (!AC) return;
+  const t = AC.currentTime;
+  if (masterGain) {
+    try { masterGain.gain.linearRampToValueAtTime(0, t + 1); } catch(e) {}
+  }
+  setTimeout(() => {
+    musicNodes.forEach(n => { try { if (n.stop) n.stop(); } catch(e) {} });
+    musicNodes = [];
+    masterGain = null;
+  }, 1100);
 }
 
 function bindMusicBtn() {
   document.getElementById('music-btn').addEventListener('click', () => {
     musicMuted = !musicMuted;
     document.getElementById('music-btn').textContent = musicMuted ? '🔇' : '🔊';
-    if (musicMuted) musicStop();
-    else musicPlay();
+    if (musicMuted) musicStop(); else musicPlay();
   });
-}
-
-// ── Audio (initialisé sur geste utilisateur pour mobile) ──
-let audioCtx = null;
-
-function initAudio() {
-  if (!audioCtx) {
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  }
-  if (audioCtx.state === 'suspended') audioCtx.resume();
 }
 
 // ── Screamer ──
@@ -242,29 +216,25 @@ function triggerScreamer() {
   overlay.classList.remove('hidden');
   overlay.classList.add('flashing');
 
-  // Son strident
-  try {
-    initAudio();
-    const makeScream = (freq, start, duration) => {
-      const osc  = audioCtx.createOscillator();
-      const gain = audioCtx.createGain();
-      osc.connect(gain);
-      gain.connect(audioCtx.destination);
-      osc.type = 'sawtooth';
-      osc.frequency.setValueAtTime(freq, audioCtx.currentTime + start);
-      osc.frequency.exponentialRampToValueAtTime(freq * 2.5, audioCtx.currentTime + start + duration);
-      gain.gain.setValueAtTime(0.8, audioCtx.currentTime + start);
-      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + start + duration);
-      osc.start(audioCtx.currentTime + start);
-      osc.stop(audioCtx.currentTime + start + duration);
+  getAC().then(ctx => {
+    const makeScream = (freq, delay, dur) => {
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      const now = ctx.currentTime;
+      o.type = 'sawtooth';
+      o.frequency.setValueAtTime(freq, now + delay);
+      o.frequency.exponentialRampToValueAtTime(freq * 2.5, now + delay + dur);
+      g.gain.setValueAtTime(0.8, now + delay);
+      g.gain.exponentialRampToValueAtTime(0.001, now + delay + dur);
+      o.connect(g); g.connect(ctx.destination);
+      o.start(now + delay); o.stop(now + delay + dur);
     };
     makeScream(320, 0,    0.6);
     makeScream(640, 0.05, 0.6);
     makeScream(180, 0.1,  0.8);
     makeScream(900, 0,    0.4);
-  } catch (e) { /* audio non dispo */ }
+  }).catch(() => {});
 
-  // Clic ou touche pour fermer
   const close = () => {
     overlay.classList.add('hidden');
     overlay.classList.remove('flashing');
@@ -273,7 +243,6 @@ function triggerScreamer() {
   };
   overlay.addEventListener('click', close);
   document.addEventListener('keydown', close);
-
   setTimeout(close, 4000);
 }
 
@@ -295,7 +264,7 @@ function savePersisted() {
 function bindSetup() {
   bindChoiceGroup('category-group',   v => { state.categorie  = v; });
   bindChoiceGroup('difficulty-group', v => { state.difficulte = v; });
-  document.getElementById('start-btn').addEventListener('click', () => { initAudio(); musicPlay(); startGame(); });
+  document.getElementById('start-btn').addEventListener('click', () => { musicPlay(); startGame(); });
 }
 
 function bindChoiceGroup(id, cb) {
