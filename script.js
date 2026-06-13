@@ -113,42 +113,115 @@ window.addEventListener('DOMContentLoaded', () => {
   updateScoreBoard();
 });
 
-// ── Musique YouTube ──
-let ytPlayer    = null;
-let ytReady     = false;
-let ytPending   = false;  // jouer dès que le player est prêt
-let ytMuted     = false;
-
-window.onYouTubeIframeAPIReady = () => {
-  ytPlayer = new YT.Player('yt-player', {
-    videoId: 'w0vcS3-TRFg',
-    playerVars: { autoplay: 0, loop: 1, playlist: 'w0vcS3-TRFg' },
-    events: {
-      onReady: () => {
-        ytReady = true;
-        ytPlayer.setVolume(50);
-        if (ytPending) { ytPlayer.playVideo(); ytPending = false; }
-      },
-    },
-  });
-};
+// ── Musique d'ambiance (Web Audio) ──
+let musicCtx   = null;
+let musicNodes = [];
+let musicOn    = false;
+let musicMuted = false;
 
 function musicPlay() {
-  if (ytMuted) return;
-  if (ytReady) { ytPlayer.setVolume(50); ytPlayer.playVideo(); }
-  else ytPending = true;
+  if (musicMuted || musicOn) return;
+  if (!musicCtx) musicCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (musicCtx.state === 'suspended') musicCtx.resume();
+  musicOn = true;
+
+  const t = musicCtx.currentTime;
+
+  // Mastervolume
+  const master = musicCtx.createGain();
+  master.gain.setValueAtTime(0, t);
+  master.gain.linearRampToValueAtTime(0.35, t + 3);
+  master.connect(musicCtx.destination);
+
+  // Filtre passe-bas qui évolue lentement
+  const filter = musicCtx.createBiquadFilter();
+  filter.type = 'lowpass';
+  filter.frequency.setValueAtTime(300, t);
+  filter.frequency.linearRampToValueAtTime(900, t + 20);
+  filter.connect(master);
+
+  // Drone grave (80 Hz)
+  const drone1 = musicCtx.createOscillator();
+  drone1.type = 'sawtooth';
+  drone1.frequency.value = 80;
+  drone1.connect(filter);
+  drone1.start(t);
+  musicNodes.push(drone1);
+
+  // Drone légèrement désaccordé → battement inquiétant
+  const drone2 = musicCtx.createOscillator();
+  drone2.type = 'sawtooth';
+  drone2.frequency.value = 82.5;
+  const g2 = musicCtx.createGain();
+  g2.gain.value = 0.5;
+  drone2.connect(g2);
+  g2.connect(filter);
+  drone2.start(t);
+  musicNodes.push(drone2);
+
+  // Harmonique aiguë pulsante (160 Hz)
+  const harm = musicCtx.createOscillator();
+  harm.type = 'sine';
+  harm.frequency.value = 160;
+  const lfo = musicCtx.createOscillator();
+  lfo.frequency.value = 0.18;
+  const lfoGain = musicCtx.createGain();
+  lfoGain.gain.value = 0.12;
+  lfo.connect(lfoGain);
+  const harmGain = musicCtx.createGain();
+  harmGain.gain.value = 0.18;
+  lfoGain.connect(harmGain.gain);
+  harm.connect(harmGain);
+  harmGain.connect(master);
+  harm.start(t);
+  lfo.start(t);
+  musicNodes.push(harm, lfo);
+
+  // Notes aléatoires graves toutes les ~4s
+  const randomNote = () => {
+    if (!musicOn) return;
+    const freqs = [55, 65, 73, 87, 98, 110];
+    const freq  = freqs[Math.floor(Math.random() * freqs.length)];
+    const osc   = musicCtx.createOscillator();
+    const gn    = musicCtx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.value = freq;
+    const now = musicCtx.currentTime;
+    gn.gain.setValueAtTime(0, now);
+    gn.gain.linearRampToValueAtTime(0.25, now + 0.8);
+    gn.gain.linearRampToValueAtTime(0, now + 3);
+    osc.connect(gn);
+    gn.connect(master);
+    osc.start(now);
+    osc.stop(now + 3.2);
+    musicNodes.push(osc);
+    const delay = 3000 + Math.random() * 4000;
+    setTimeout(randomNote, delay);
+  };
+  setTimeout(randomNote, 2000);
+
+  musicNodes.push(master, filter, g2, lfoGain, harmGain);
 }
 
 function musicStop() {
-  ytPending = false;
-  if (ytReady) ytPlayer.stopVideo();
+  if (!musicOn) return;
+  musicOn = false;
+  if (!musicCtx) return;
+  const t = musicCtx.currentTime;
+  musicNodes.forEach(n => {
+    try {
+      if (n instanceof OscillatorNode) n.stop(t + 1.5);
+      else if (n instanceof GainNode) n.gain.linearRampToValueAtTime(0, t + 1.5);
+    } catch(e) {}
+  });
+  musicNodes = [];
 }
 
 function bindMusicBtn() {
   document.getElementById('music-btn').addEventListener('click', () => {
-    ytMuted = !ytMuted;
-    document.getElementById('music-btn').textContent = ytMuted ? '🔇' : '🔊';
-    if (ytMuted) musicStop();
+    musicMuted = !musicMuted;
+    document.getElementById('music-btn').textContent = musicMuted ? '🔇' : '🔊';
+    if (musicMuted) musicStop();
     else musicPlay();
   });
 }
