@@ -112,6 +112,24 @@ window.addEventListener('DOMContentLoaded', () => {
   updateScoreBoard();
 });
 
+// ── Musique YouTube ──
+let ytPlayer = null;
+let ytReady  = false;
+
+window.onYouTubeIframeAPIReady = () => {
+  ytPlayer = new YT.Player('yt-player', {
+    videoId: 'w0vcS3-TRFg',
+    playerVars: { autoplay: 0, loop: 1, playlist: 'w0vcS3-TRFg' },
+    events: {
+      onReady: () => { ytReady = true; },
+    },
+  });
+};
+
+function musicPlay()  { if (ytReady) { ytPlayer.setVolume(50); ytPlayer.playVideo(); } }
+function musicStop()  { if (ytReady) ytPlayer.stopVideo(); }
+function musicPause() { if (ytReady) ytPlayer.pauseVideo(); }
+
 // ── Audio (initialisé sur geste utilisateur pour mobile) ──
 let audioCtx = null;
 
@@ -181,7 +199,7 @@ function savePersisted() {
 function bindSetup() {
   bindChoiceGroup('category-group',   v => { state.categorie  = v; });
   bindChoiceGroup('difficulty-group', v => { state.difficulte = v; });
-  document.getElementById('start-btn').addEventListener('click', () => { initAudio(); startGame(); });
+  document.getElementById('start-btn').addEventListener('click', () => { initAudio(); musicPlay(); startGame(); });
 }
 
 function bindChoiceGroup(id, cb) {
@@ -415,6 +433,7 @@ function renderLives() {
 // ── Fin de partie ──
 async function endGame(victoire) {
   disableKeyboard();
+  musicStop();
 
   let points = 0;
   if (victoire) {
@@ -504,6 +523,7 @@ function updateScoreBoard() {
 // ── Quitter ──
 function bindQuit() {
   document.getElementById('quit-btn').addEventListener('click', () => {
+    musicStop();
     state.serie = 0;
     renderHighScores();
     showScreen('setup-screen');
