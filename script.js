@@ -67,6 +67,23 @@ const WORDS = {
     { mot: 'ENDIVE', indice: 'Légume pâle et amer' },
     { mot: 'MACARON', indice: 'Petit gâteau coloré de Paris' },
   ],
+  celebrites: [
+    { mot: 'ZIDANE', indice: 'Footballeur français, coup de tête en finale 2006' },
+    { mot: 'BEYONCE', indice: 'Reine de la pop américaine, Destiny\'s Child' },
+    { mot: 'NAPOLEON', indice: 'Empereur des Français, exilé à Sainte-Hélène' },
+    { mot: 'SHAKESPEARE', indice: 'Auteur de Roméo et Juliette' },
+    { mot: 'EINSTEIN', indice: 'Physicien, théorie de la relativité' },
+    { mot: 'MADONNA', indice: 'Reine de la pop, Material Girl' },
+    { mot: 'CHAPLIN', indice: 'Acteur muet, Charlot' },
+    { mot: 'DALIDA', indice: 'Chanteuse franco-égyptienne, Bambino' },
+    { mot: 'DEPARDIEU', indice: 'Acteur français, Cyrano de Bergerac' },
+    { mot: 'CLEOPATRA', indice: 'Dernière reine d\'Égypte antique' },
+    { mot: 'PICASSO', indice: 'Peintre espagnol, cubisme' },
+    { mot: 'STROMAE', indice: 'Chanteur belge, Alors on danse' },
+    { mot: 'AZNAVOUR', indice: 'Chanteur franco-arménien, La Bohème' },
+    { mot: 'SERENA', indice: 'Championne de tennis américaine, Williams' },
+    { mot: 'MBEMBA', indice: 'Footballeur franco-congolais de L1' },
+  ],
 };
 
 const DIFFICULTY = {
