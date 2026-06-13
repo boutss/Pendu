@@ -378,6 +378,72 @@ header h1 {
   gap: 10px;
 }
 
+/* ── Pseudo input ── */
+.pseudo-input {
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 1rem;
+  outline: none;
+  transition: border-color .15s;
+}
+
+.pseudo-input:focus { border-color: var(--accent); }
+.pseudo-input::placeholder { color: var(--muted); }
+
+/* ── Scores tabs ── */
+.scores-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.tab-btn {
+  flex: 1;
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: all .15s;
+}
+
+.tab-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.hidden { display: none !important; }
+
+#global-scores-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.global-score-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: var(--surface);
+  border-radius: 8px;
+  font-size: 0.9rem;
+}
+
+.global-score-item:first-child { border: 1px solid var(--accent); }
+
+.score-pseudo { flex: 1; padding: 0 8px; font-weight: 600; }
+.score-meta   { font-size: 0.75rem; color: var(--muted); }
+
+.loading { color: var(--muted); font-size: 0.9rem; text-align: center; display: block; padding: 12px; }
+
 /* ── Responsive ── */
 @media (max-width: 420px) {
   .kb-key { width: 32px; height: 38px; font-size: 0.8rem; }

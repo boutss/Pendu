@@ -1,5 +1,10 @@
 'use strict';
 
+// ── Supabase ──
+const SUPABASE_URL = 'https://mzinoohhsqlvbuoygtua.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im16aW5vb2hoc3FsdmJ1b3lndHVhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEzNTQ2MzMsImV4cCI6MjA5NjkzMDYzM30.0FlwdWZcfGLHj1jZh_Tm4vaJlyiIFoIhRTbJzCxwlSE';
+const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
 // ── Banque de mots ──
 const WORDS = {
   animaux: [
@@ -80,6 +85,7 @@ const KEYBOARD_ROWS = [
 
 // ── État du jeu ──
 let state = {
+  pseudo: '',
   categorie: 'all',
   difficulte: 'facile',
   mot: '',
@@ -102,23 +108,27 @@ window.addEventListener('DOMContentLoaded', () => {
   bindSetup();
   bindResult();
   bindQuit();
+  bindTabs();
   updateScoreBoard();
 });
 
-// ── Persistance ──
+// ── Persistance locale ──
 function loadPersisted() {
-  state.meilleur = Number(localStorage.getItem('pendu_best') || 0);
+  state.meilleur  = Number(localStorage.getItem('pendu_best') || 0);
   state.historique = JSON.parse(localStorage.getItem('pendu_scores') || '[]');
+  state.pseudo    = localStorage.getItem('pendu_pseudo') || '';
+  if (state.pseudo) document.getElementById('pseudo-input').value = state.pseudo;
 }
 
 function savePersisted() {
-  localStorage.setItem('pendu_best', state.meilleur);
+  localStorage.setItem('pendu_best',   state.meilleur);
   localStorage.setItem('pendu_scores', JSON.stringify(state.historique));
+  localStorage.setItem('pendu_pseudo', state.pseudo);
 }
 
 // ── Setup ──
 function bindSetup() {
-  bindChoiceGroup('category-group', v => { state.categorie = v; });
+  bindChoiceGroup('category-group',   v => { state.categorie  = v; });
   bindChoiceGroup('difficulty-group', v => { state.difficulte = v; });
   document.getElementById('start-btn').addEventListener('click', startGame);
 }
@@ -133,8 +143,73 @@ function bindChoiceGroup(id, cb) {
   });
 }
 
+// ── Onglets scores ──
+function bindTabs() {
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+
+      const tab = btn.dataset.tab;
+      document.getElementById('tab-local').classList.toggle('hidden', tab !== 'local');
+      document.getElementById('tab-global').classList.toggle('hidden', tab !== 'global');
+
+      if (tab === 'global') loadGlobalScores();
+    });
+  });
+}
+
+// ── Classement mondial ──
+async function loadGlobalScores() {
+  const container = document.getElementById('global-scores-list');
+  container.innerHTML = '<span class="loading">Chargement...</span>';
+
+  const { data, error } = await db
+    .from('scores')
+    .select('pseudo, points, categorie, difficulte, created_at')
+    .order('points', { ascending: false })
+    .limit(10);
+
+  if (error) {
+    container.innerHTML = '<span class="loading">Erreur de chargement.</span>';
+    return;
+  }
+
+  if (!data.length) {
+    container.innerHTML = '<span class="loading">Aucun score encore — sois le premier !</span>';
+    return;
+  }
+
+  container.innerHTML = '';
+  data.forEach((s, i) => {
+    const div = document.createElement('div');
+    div.className = 'global-score-item';
+    const date = new Date(s.created_at).toLocaleDateString('fr-FR');
+    div.innerHTML = `
+      <span class="score-rank">${i + 1}.</span>
+      <span class="score-pseudo">${escapeHtml(s.pseudo)}</span>
+      <span class="score-meta">${capFirst(s.difficulte)} · ${date}</span>
+      <span class="score-val">${s.points} pts</span>`;
+    container.appendChild(div);
+  });
+}
+
+async function submitGlobalScore(points) {
+  if (!state.pseudo || points <= 0) return;
+  await db.from('scores').insert({
+    pseudo:     state.pseudo,
+    points:     points,
+    categorie:  state.categorie,
+    difficulte: state.difficulte,
+  });
+}
+
 // ── Démarrage ──
 function startGame() {
+  const pseudoInput = document.getElementById('pseudo-input').value.trim();
+  state.pseudo = pseudoInput || 'Anonyme';
+  savePersisted();
+
   const pool = state.categorie === 'all'
     ? Object.values(WORDS).flat()
     : WORDS[state.categorie] || [];
@@ -142,8 +217,8 @@ function startGame() {
   const item = pool[Math.floor(Math.random() * pool.length)];
   const diff = DIFFICULTY[state.difficulte];
 
-  state.mot            = item.mot.toUpperCase();
-  state.indice         = diff.indice ? item.indice : '';
+  state.mot             = item.mot.toUpperCase();
+  state.indice          = diff.indice ? item.indice : '';
   state.lettresDevinees = new Set();
   state.lettresEssayees = new Set();
   state.viesMax         = diff.vies;
@@ -169,6 +244,10 @@ function capFirst(s) {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
+function escapeHtml(str) {
+  return str.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
 // ── Saisie clavier physique ──
 document.addEventListener('keydown', e => {
   if (!document.getElementById('game-screen').classList.contains('active')) return;
@@ -184,8 +263,8 @@ function buildKeyboard() {
     rowEl.className = 'kb-row';
     row.forEach(letter => {
       const btn = document.createElement('button');
-      btn.className   = 'kb-key';
-      btn.textContent = letter;
+      btn.className    = 'kb-key';
+      btn.textContent  = letter;
       btn.dataset.letter = letter;
       btn.addEventListener('click', () => handleGuess(letter));
       rowEl.appendChild(btn);
@@ -280,22 +359,22 @@ function renderLives() {
 }
 
 // ── Fin de partie ──
-function endGame(victoire) {
+async function endGame(victoire) {
   disableKeyboard();
 
   let points = 0;
   if (victoire) {
     points = state.viesRestantes * 10;
-    if (state.difficulte === 'moyen')    points = Math.round(points * 1.5);
+    if (state.difficulte === 'moyen')     points = Math.round(points * 1.5);
     if (state.difficulte === 'difficile') points = Math.round(points * 2.5);
     state.serie++;
     if (state.serie > 1) points += state.serie * 5;
     state.score += points;
+
+    await submitGlobalScore(points);
   } else {
     state.serie = 0;
-    // révéler toutes les parties du pendu
     BODY_PARTS.forEach(id => document.getElementById(id).classList.remove('hidden'));
-    // révéler le mot
     [...state.mot].forEach(l => state.lettresDevinees.add(l));
     renderWord();
   }
@@ -314,7 +393,7 @@ function disableKeyboard() {
 
 // ── Écran résultat ──
 function showResult(victoire, points) {
-  const card   = document.getElementById('result-card');
+  const card = document.getElementById('result-card');
   card.className = 'result-card ' + (victoire ? 'win' : 'lose');
 
   document.getElementById('result-icon').textContent    = victoire ? '🎉' : '💀';
@@ -323,9 +402,9 @@ function showResult(victoire, points) {
     ? `Tu as trouvé le mot en ${state.viesMax - state.viesRestantes} erreur(s).`
     : `Le mot était : ${state.mot}`;
 
-  document.getElementById('stat-word').textContent      = state.mot;
-  document.getElementById('stat-points').textContent    = `+${points}`;
-  document.getElementById('stat-streak').textContent    = `×${state.serie}`;
+  document.getElementById('stat-word').textContent   = state.mot;
+  document.getElementById('stat-points').textContent = `+${points}`;
+  document.getElementById('stat-streak').textContent = `×${state.serie}`;
 
   showScreen('result-screen');
 }
@@ -338,7 +417,7 @@ function bindResult() {
   });
 }
 
-// ── Scores ──
+// ── Scores locaux ──
 function recordScore(points) {
   if (points <= 0) return;
   state.historique.push({ pts: points, date: new Date().toLocaleDateString('fr-FR') });
@@ -349,13 +428,14 @@ function recordScore(points) {
 function renderHighScores() {
   const list = document.getElementById('high-scores-list');
   list.innerHTML = '';
-  if (state.historique.length === 0) {
-    list.innerHTML = '<li style="color:var(--muted);justify-content:center">Aucun score enregistré</li>';
+  if (!state.historique.length) {
+    list.innerHTML = '<li style="color:var(--muted);justify-content:center;list-style:none;padding:8px">Aucun score enregistré</li>';
     return;
   }
   state.historique.forEach((s, i) => {
     const li = document.createElement('li');
-    li.innerHTML = `<span class="score-rank">${i + 1}.</span><span class="score-name">${s.date}</span><span class="score-val">${s.pts} pts</span>`;
+    li.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:var(--surface);border-radius:8px;font-size:.9rem;list-style:none';
+    li.innerHTML = `<span class="score-rank">${i + 1}.</span><span class="score-name" style="flex:1;padding:0 8px">${s.date}</span><span class="score-val">${s.pts} pts</span>`;
     list.appendChild(li);
   });
 }
